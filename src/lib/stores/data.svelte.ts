@@ -234,7 +234,7 @@ class DataStore {
 			updatedAt: Date.now()
 		};
 		this.metaById = { ...this.metaById, [repoId]: next };
-		await putMeta(next);
+		await putMeta($state.snapshot(next));
 		this.#scheduleAutoSync();
 	}
 
@@ -242,7 +242,7 @@ class DataStore {
 		const current = this.#metaOrNew(repoId);
 		const next: RepoMeta = { ...current, note, updatedAt: Date.now() };
 		this.metaById = { ...this.metaById, [repoId]: next };
-		await putMeta(next);
+		await putMeta($state.snapshot(next));
 		this.#scheduleAutoSync();
 	}
 
@@ -262,7 +262,7 @@ class DataStore {
 			rules: input.smart ? input.rules : undefined
 		};
 		this.tags = [...this.tags, tag];
-		await putTag(tag);
+		await putTag($state.snapshot(tag));
 		this.#scheduleAutoSync();
 		return tag;
 	}
@@ -272,7 +272,7 @@ class DataStore {
 		if (idx < 0) return;
 		const next: Tag = { ...this.tags[idx], ...patch };
 		this.tags = [...this.tags.slice(0, idx), next, ...this.tags.slice(idx + 1)];
-		await putTag(next);
+		await putTag($state.snapshot(next));
 		this.#scheduleAutoSync();
 	}
 
@@ -294,7 +294,7 @@ class DataStore {
 			}
 		}
 		this.metaById = nextMeta;
-		for (const nm of touched) await putMeta(nm);
+		for (const nm of touched) await putMeta($state.snapshot(nm));
 
 		if (
 			(this.view.kind === 'tag' || this.view.kind === 'smart') &&
@@ -308,7 +308,7 @@ class DataStore {
 	// --- settings / gist ---
 	async #patchSettings(patch: Partial<Settings>): Promise<void> {
 		this.settings = { ...this.settings, ...patch };
-		await putSettings(this.settings);
+		await putSettings($state.snapshot(this.settings));
 	}
 
 	setGistId(id: string | null): Promise<void> {
