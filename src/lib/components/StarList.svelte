@@ -8,6 +8,8 @@
 	import ArrowUpDown from '@lucide/svelte/icons/arrow-up-down';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Check from '@lucide/svelte/icons/check';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import type { SortKey } from '$lib/types';
 
 	const SORTS: { key: SortKey; label: string }[] = [
@@ -23,6 +25,45 @@
 			? Math.round((data.progress.loaded / data.progress.total) * 100)
 			: 0
 	);
+
+	// --- pagination ---
+	// `data.filtered` is already filtered + fully sorted across the entire dataset,
+	// so slicing it here paginates without ever sorting only a single page.
+	const PAGE_SIZE = 50;
+	let page = $state(1);
+	let scrollEl = $state<HTMLElement | null>(null);
+	// Draft text for the "jump to page" field; committed on Enter/blur, not per keystroke.
+	let pageDraft = $state('1');
+
+	let pageCount = $derived(Math.max(1, Math.ceil(data.filtered.length / PAGE_SIZE)));
+	let pageStart = $derived((page - 1) * PAGE_SIZE);
+	let paged = $derived(data.filtered.slice(pageStart, pageStart + PAGE_SIZE));
+
+	// Whenever the underlying set changes (search, sort, view, language, a re-sync),
+	// jump back to the first page so the user isn't stranded on a now-empty page.
+	$effect(() => {
+		data.filtered; // track
+		page = 1;
+		scrollEl?.scrollTo({ top: 0 });
+	});
+
+	function goTo(next: number): void {
+		page = Math.min(Math.max(1, next), pageCount);
+		scrollEl?.scrollTo({ top: 0 });
+	}
+
+	// Mirror the live page into the input whenever it changes elsewhere (Prev/Next, filter reset).
+	$effect(() => {
+		pageDraft = String(page);
+	});
+
+	// Apply a typed page number. Anything non-numeric or out of range is rejected/clamped,
+	// and the field always snaps back to the real current page.
+	function commitPage(): void {
+		const n = Number.parseInt(pageDraft, 10);
+		if (Number.isFinite(n)) goTo(n);
+		pageDraft = String(page);
+	}
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
@@ -75,7 +116,7 @@
 		{/if}
 	</div>
 
-	<div class="min-h-0 flex-1 overflow-y-auto">
+	<div class="min-h-0 flex-1 overflow-y-auto" bind:this={scrollEl}>
 		{#if data.filtered.length === 0}
 			<div class="text-muted-foreground p-8 text-center text-sm">
 				{#if data.stars.length === 0}
@@ -85,9 +126,38 @@
 				{/if}
 			</div>
 		{:else}
-			{#each data.filtered as star (star.id)}
+			{#each paged as star (star.id)}
 				<StarRow {star} selected={data.selectedId === star.id} onselect={() => data.select(star.id)} />
 			{/each}
 		{/if}
 	</div>
+
+	{#if pageCount > 1}
+		<div class="flex items-center justify-between gap-2 border-t p-2">
+			<Button variant="ghost" size="sm" onclick={() => goTo(page - 1)} disabled={page <= 1}>
+				<ChevronLeft /> Prev
+			</Button>
+			<div class="text-muted-foreground flex items-center gap-1.5 text-xs">
+				<span>Page</span>
+				<Input
+					type="number"
+					min="1"
+					max={pageCount}
+					inputmode="numeric"
+					aria-label="Go to page"
+					bind:value={pageDraft}
+					onfocus={(e) => e.currentTarget.select()}
+					onkeydown={(e) => {
+						if (e.key === 'Enter') e.currentTarget.blur();
+					}}
+					onblur={commitPage}
+					class="h-7 w-14 px-1 text-center text-sm tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+				/>
+				<span>of {pageCount}</span>
+			</div>
+			<Button variant="ghost" size="sm" onclick={() => goTo(page + 1)} disabled={page >= pageCount}>
+				Next <ChevronRight />
+			</Button>
+		</div>
+	{/if}
 </div>
