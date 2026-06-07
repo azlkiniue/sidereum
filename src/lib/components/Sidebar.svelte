@@ -4,10 +4,7 @@
 	import { toggleMode } from 'mode-watcher';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import TagDialog from './TagDialog.svelte';
-	import BackupDialog from './BackupDialog.svelte';
 	import type { Tag, ViewKind } from '$lib/types';
 	import Star from '@lucide/svelte/icons/star';
 	import Inbox from '@lucide/svelte/icons/inbox';
@@ -20,10 +17,21 @@
 	import Database from '@lucide/svelte/icons/database';
 	import LogOut from '@lucide/svelte/icons/log-out';
 
-	let tagDialogOpen = $state(false);
-	let editingTag = $state<Tag | null>(null);
-	let deleteTarget = $state<Tag | null>(null);
-	let backupOpen = $state(false);
+	// Dialogs live in the parent (AppShell) so they survive the mobile drawer closing.
+	// The sidebar just signals intent; the parent owns the dialog state and the closing.
+	let {
+		onnavigate,
+		onNewTag,
+		onEditTag,
+		onRequestDelete,
+		onOpenBackup
+	}: {
+		onnavigate?: () => void;
+		onNewTag?: () => void;
+		onEditTag?: (tag: Tag) => void;
+		onRequestDelete?: (tag: Tag) => void;
+		onOpenBackup?: () => void;
+	} = $props();
 
 	function isActive(view: ViewKind): boolean {
 		const v = data.view;
@@ -35,20 +43,13 @@
 
 	const navBase = 'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors';
 
-	function newTag() {
-		editingTag = null;
-		tagDialogOpen = true;
-	}
-	function editTag(tag: Tag) {
-		editingTag = tag;
-		tagDialogOpen = true;
-	}
-	async function confirmDelete() {
-		if (deleteTarget) await data.deleteTag(deleteTarget.id);
-		deleteTarget = null;
+	function navigate(view: ViewKind) {
+		data.setView(view);
+		onnavigate?.();
 	}
 	function toggleLanguage(name: string) {
 		data.languageFilter = data.languageFilter === name ? null : name;
+		onnavigate?.();
 	}
 </script>
 
@@ -61,7 +62,7 @@
 		<button
 			type="button"
 			class="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-sm"
-			onclick={() => data.setView({ kind, tagId: tag.id })}
+			onclick={() => navigate({ kind, tagId: tag.id })}
 		>
 			{#if kind === 'smart'}
 				<Sparkles class="size-3.5 shrink-0" style="color: {tag.color};" />
@@ -73,14 +74,14 @@
 		<span class="text-muted-foreground px-1 text-xs tabular-nums group-hover:hidden">{count}</span>
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger
-				class="text-muted-foreground hover:text-foreground hidden size-6 items-center justify-center rounded group-hover:flex data-[state=open]:flex"
+				class="text-muted-foreground hover:text-foreground flex size-6 items-center justify-center rounded lg:hidden lg:group-hover:flex data-[state=open]:flex"
 				aria-label="Options for {tag.name}"
 			>
 				<Ellipsis class="size-4" />
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content align="end">
-				<DropdownMenu.Item onSelect={() => editTag(tag)}><Pencil /> Edit</DropdownMenu.Item>
-				<DropdownMenu.Item onSelect={() => (deleteTarget = tag)}><Trash2 /> Delete</DropdownMenu.Item>
+				<DropdownMenu.Item onSelect={() => onEditTag?.(tag)}><Pencil /> Edit</DropdownMenu.Item>
+				<DropdownMenu.Item onSelect={() => onRequestDelete?.(tag)}><Trash2 /> Delete</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 	</div>
@@ -112,7 +113,7 @@
 						</div>
 					</DropdownMenu.Label>
 					<DropdownMenu.Separator />
-					<DropdownMenu.Item onSelect={() => (backupOpen = true)}>
+					<DropdownMenu.Item onSelect={() => onOpenBackup?.()}>
 						<Database /> Backup &amp; sync
 					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={toggleMode}>
@@ -134,7 +135,7 @@
 				class="{navBase} {isActive({ kind: 'all' })
 					? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
 					: 'hover:bg-sidebar-accent/50'}"
-				onclick={() => data.setView({ kind: 'all' })}
+				onclick={() => navigate({ kind: 'all' })}
 			>
 				<Star class="size-4" /> All stars
 				<span class="text-muted-foreground ml-auto text-xs tabular-nums">{data.stars.length}</span>
@@ -143,7 +144,7 @@
 				class="{navBase} {isActive({ kind: 'untagged' })
 					? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
 					: 'hover:bg-sidebar-accent/50'}"
-				onclick={() => data.setView({ kind: 'untagged' })}
+				onclick={() => navigate({ kind: 'untagged' })}
 			>
 				<Inbox class="size-4" /> Untagged
 				<span class="text-muted-foreground ml-auto text-xs tabular-nums">{data.untaggedCount}</span>
@@ -156,7 +157,7 @@
 				<span class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Tags</span>
 				<button
 					class="text-muted-foreground hover:text-foreground"
-					onclick={newTag}
+					onclick={() => onNewTag?.()}
 					aria-label="New tag"
 				>
 					<Plus class="size-3.5" />
@@ -169,7 +170,7 @@
 				{#if data.manualTags.length === 0}
 					<button
 						class="text-muted-foreground hover:text-foreground px-2 py-1 text-left text-xs"
-						onclick={newTag}
+						onclick={() => onNewTag?.()}
 					>
 						+ Add your first tag
 					</button>
@@ -220,39 +221,8 @@
 
 	<!-- Footer -->
 	<div class="border-t p-2">
-		<Button
-			variant="ghost"
-			size="sm"
-			class="w-full justify-start"
-			onclick={() => (backupOpen = true)}
-		>
+		<Button variant="ghost" size="sm" class="w-full justify-start" onclick={() => onOpenBackup?.()}>
 			<Database /> Backup &amp; sync
 		</Button>
 	</div>
 </aside>
-
-<TagDialog bind:open={tagDialogOpen} tag={editingTag} />
-<BackupDialog bind:open={backupOpen} />
-
-<AlertDialog.Root
-	open={!!deleteTarget}
-	onOpenChange={(o) => {
-		if (!o) deleteTarget = null;
-	}}
->
-	<AlertDialog.Content>
-		<AlertDialog.Header>
-			<AlertDialog.Title>Delete “{deleteTarget?.name}”?</AlertDialog.Title>
-			<AlertDialog.Description>
-				This removes the tag from every repository it's on. Your notes are unaffected. This can't be
-				undone.
-			</AlertDialog.Description>
-		</AlertDialog.Header>
-		<AlertDialog.Footer>
-			<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-			<AlertDialog.Action class={buttonVariants({ variant: 'destructive' })} onclick={confirmDelete}>
-				Delete tag
-			</AlertDialog.Action>
-		</AlertDialog.Footer>
-	</AlertDialog.Content>
-</AlertDialog.Root>

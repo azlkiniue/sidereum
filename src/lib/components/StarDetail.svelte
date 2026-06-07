@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Star } from '$lib/types';
 	import { data } from '$lib/stores/data.svelte';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import TagBadge from './TagBadge.svelte';
 	import TagPicker from './TagPicker.svelte';
@@ -15,15 +15,24 @@
 	import Link2 from '@lucide/svelte/icons/link-2';
 	import Archive from '@lucide/svelte/icons/archive';
 	import GitForkIcon from '@lucide/svelte/icons/git-fork';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 
-	let { star }: { star: Star } = $props();
+	// `onback` returns to the list pane on phones, where the two aren't shown side by side.
+	let { star, onback }: { star: Star; onback?: () => void } = $props();
 
 	let assignedTags = $derived(data.tagsForRepo(star.id));
 	let smartMatches = $derived(data.smartTagsForRepo(star));
 </script>
 
-<div class="flex h-full min-h-0 flex-col overflow-y-auto">
-	<div class="mx-auto w-full max-w-3xl space-y-6 p-6">
+<div class="flex h-full min-h-0 flex-col">
+	<!-- Phone-only back bar: from md up the list sits beside this pane, so it isn't needed. -->
+	<div class="flex items-center border-b p-2 md:hidden">
+		<Button variant="ghost" size="sm" class="-ml-1" onclick={onback}>
+			<ChevronLeft /> Stars
+		</Button>
+	</div>
+	<div class="min-h-0 flex-1 overflow-y-auto">
+		<div class="mx-auto w-full max-w-3xl space-y-6 p-4 md:p-6">
 		<!-- Header -->
 		<div class="space-y-3">
 			<div class="flex items-start justify-between gap-3">
@@ -57,7 +66,7 @@
 					href={star.url}
 					target="_blank"
 					rel="noreferrer"
-					class={buttonVariants({ variant: 'outline', size: 'sm' })}
+					class="{buttonVariants({ variant: 'outline', size: 'sm' })} shrink-0"
 				>
 					<ExternalLink /> GitHub
 				</a>
@@ -142,5 +151,6 @@
 				<NoteEditor {star} />
 			{/key}
 		</div>
+	</div>
 	</div>
 </div>

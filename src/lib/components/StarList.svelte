@@ -10,7 +10,11 @@
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Menu from '@lucide/svelte/icons/menu';
 	import type { SortKey } from '$lib/types';
+
+	// Opens the off-canvas sidebar on screens where it isn't a permanent column.
+	let { onmenu }: { onmenu?: () => void } = $props();
 
 	const SORTS: { key: SortKey; label: string }[] = [
 		{ key: 'starred-desc', label: 'Recently starred' },
@@ -68,9 +72,20 @@
 
 <div class="flex h-full min-h-0 flex-col">
 	<div class="space-y-2 border-b p-3">
-		<div class="relative">
-			<Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-			<Input bind:value={data.search} placeholder="Search stars…" class="pl-8" />
+		<div class="flex items-center gap-2">
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="shrink-0 lg:hidden"
+				onclick={onmenu}
+				aria-label="Open menu"
+			>
+				<Menu />
+			</Button>
+			<div class="relative flex-1">
+				<Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+				<Input bind:value={data.search} placeholder="Search stars…" class="pl-8" />
+			</div>
 		</div>
 		<div class="flex items-center justify-between gap-2">
 			<span class="text-muted-foreground text-xs">
