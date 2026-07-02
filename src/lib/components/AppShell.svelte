@@ -102,7 +102,7 @@
 	<!-- Master list: full-width on phones, a fixed column from md up.
 	     On phones it gives way to the detail pane once a repo is open. -->
 	<div
-		class="w-full min-w-0 md:w-[380px] md:shrink-0 md:border-r {data.selected
+		class="w-full min-w-0 md:w-95 md:shrink-0 md:border-r {data.selected
 			? 'max-md:hidden'
 			: ''}"
 	>

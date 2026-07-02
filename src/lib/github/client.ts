@@ -11,6 +11,8 @@ const REST_URL = 'https://api.github.com';
 /** Filename used for the backup stored in a GitHub Gist. */
 export const GIST_FILENAME = 'sidereum-backup.json';
 
+export const PER_PAGE: number = 100;
+
 export interface Viewer {
 	login: string;
 	name: string | null;
@@ -130,7 +132,7 @@ export async function fetchAllStars(
 	onProgress?: (loaded: number, total: number) => void
 ): Promise<Star[]> {
 	const stars: Star[] = [];
-	const perPage = 100;
+	const perPage = PER_PAGE;
 	let estimatedTotal = 0;
 
 	// Hard cap (100k stars) so a malformed Link header can never loop forever.

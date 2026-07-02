@@ -31,7 +31,7 @@
 </script>
 
 <Tabs.Root bind:value={tab} class="gap-2">
-	<Tabs.List class="grid w-full max-w-[220px] grid-cols-2">
+	<Tabs.List class="grid w-full max-w-55 grid-cols-2">
 		<Tabs.Trigger value="write">Write</Tabs.Trigger>
 		<Tabs.Trigger value="preview">Preview</Tabs.Trigger>
 	</Tabs.List>

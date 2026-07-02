@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { data } from '$lib/stores/data.svelte';
+	import { PER_PAGE } from '$lib/github/client';
 	import { Input } from '$lib/components/ui/input';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -33,7 +34,7 @@
 	// --- pagination ---
 	// `data.filtered` is already filtered + fully sorted across the entire dataset,
 	// so slicing it here paginates without ever sorting only a single page.
-	const PAGE_SIZE = 50;
+	const PAGE_SIZE = PER_PAGE;
 	let page = $state(1);
 	let scrollEl = $state<HTMLElement | null>(null);
 	// Draft text for the "jump to page" field; committed on Enter/blur, not per keystroke.
@@ -123,9 +124,9 @@
 					<div class="bg-primary h-full transition-all duration-300" style="width: {percent}%"></div>
 				</div>
 				<p class="text-muted-foreground text-xs">
-					Fetching stars… {data.progress?.loaded ?? 0}{data.progress?.total
-						? ` / ${data.progress.total}`
-						: ''}
+					Fetching stars… 
+					Page: {Math.ceil((data.progress?.loaded ?? 0) / PER_PAGE) }/{Math.ceil((data.progress?.total ?? 0) / PER_PAGE)} 
+					({percent}%)
 				</p>
 			</div>
 		{/if}
