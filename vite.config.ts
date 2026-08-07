@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 const rawBasePath = process.env.BASE_PATH ?? '';
 const basePath = rawBasePath === '' ? '/' : rawBasePath.endsWith('/') ? rawBasePath : `${rawBasePath}/`;
+const indexPath = `${basePath}index.html`;
+const fallbackPath = `${basePath}404.html`;
 
 export default defineConfig({
 	plugins: [
@@ -52,22 +54,37 @@ export default defineConfig({
 				]
 			},
 			workbox: {
+				cleanupOutdatedCaches: true,
+				clientsClaim: true,
+				skipWaiting: true,
 				navigateFallback: 'index.html',
+				additionalManifestEntries: [
+					{ url: basePath, revision: null },
+					{ url: indexPath, revision: null },
+					{ url: fallbackPath, revision: null }
+				],
 				navigateFallbackDenylist: [/^\/api\//],
 				runtimeCaching: [
 					{
-						urlPattern: ({ request }) => request.mode === 'navigate',
-						handler: 'NetworkFirst',
+						urlPattern: ({ request, url }) =>
+							request.mode === 'navigate' && url.origin === self.location.origin,
+						handler: 'CacheFirst',
 						options: {
 							cacheName: 'sidereum-pages',
-							networkTimeoutSeconds: 5
+							cacheableResponse: {
+								statuses: [200]
+							}
 						}
 					},
 					{
-						urlPattern: /\/_app\//,
+						urlPattern: ({ url, request }) =>
+							url.origin === self.location.origin && request.destination !== 'document',
 						handler: 'StaleWhileRevalidate',
 						options: {
-							cacheName: 'sidereum-app-assets'
+							cacheName: 'sidereum-static-assets',
+							cacheableResponse: {
+								statuses: [200]
+							}
 						}
 					}
 				]

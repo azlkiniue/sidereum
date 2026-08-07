@@ -95,8 +95,8 @@ A `.nojekyll` file is shipped in `static/` so GitHub Pages serves SvelteKit's `_
 
 - `bun run build` generates a service worker and `manifest.webmanifest`.
 - PWA icons are in `static/icons/` (standard + maskable) plus `static/apple-touch-icon.png`.
-- Core app shell assets are precached, and navigation uses a network-first fallback to cached pages
-  for offline startup after the first successful load.
+- The service worker precaches app pages and core static assets, and caches all same-origin page
+  navigations so Sidereum remains usable offline after first load.
 
 ### Cloudflare Pages
 
