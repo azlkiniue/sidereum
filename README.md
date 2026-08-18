@@ -16,6 +16,7 @@ export at any time. Deploy it to GitHub Pages or Cloudflare Pages for free.
   archived/fork, …) combined with _all_ / _any_ logic.
 - 🔎 **Fuzzy search & filters** — search across name, description, owner and topics; filter by
   language; sort by stars, recency, or name.
+- 📱 **Installable PWA** — install Sidereum on desktop/mobile with offline startup for the app shell.
 - 💾 **Backup as a file** — export everything to a JSON file and import it back (merge or replace).
 - ☁️ **Optional Gist sync** — back up your tags & notes to a private GitHub Gist so they follow
   you across devices (still 100% client-side).
@@ -85,8 +86,17 @@ A workflow is included at [`.github/workflows/deploy.yml`](.github/workflows/dep
 The workflow sets `BASE_PATH=/<repo-name>` so a **project site**
 (`https://<you>.github.io/sidereum`) resolves assets correctly. If you deploy to a **root site**
 (a `<you>.github.io` repo) or a custom domain, set `BASE_PATH` to an empty string in the workflow.
+That same `BASE_PATH` also scopes the PWA manifest/start URL and service worker registration so
+install/offline behavior works correctly on both root and project sites.
 
 A `.nojekyll` file is shipped in `static/` so GitHub Pages serves SvelteKit's `_app/` directory.
+
+### PWA notes
+
+- `bun run build` generates a service worker and `manifest.webmanifest`.
+- PWA icons are in `static/icons/` (standard + maskable) plus `static/apple-touch-icon.png`.
+- The service worker precaches app pages and core static assets, and caches all same-origin page
+  navigations so Sidereum remains usable offline after first load.
 
 ### Cloudflare Pages
 
