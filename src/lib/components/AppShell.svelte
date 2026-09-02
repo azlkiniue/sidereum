@@ -66,61 +66,68 @@
 	}}
 />
 
-<div class="flex h-svh w-full overflow-hidden">
-	<!-- Sidebar: a permanent column on large screens… -->
-	<div class="hidden lg:flex">
-		<Sidebar
-			onNewTag={newTag}
-			onEditTag={editTag}
-			onRequestDelete={requestDelete}
-			onOpenBackup={openBackup}
-		/>
-	</div>
-
-	<!-- …and an off-canvas drawer on smaller ones. -->
-	{#if sidebarOpen}
-		<div class="fixed inset-0 z-50 lg:hidden">
-			<button
-				type="button"
-				aria-label="Close menu"
-				class="absolute inset-0 bg-black/50"
-				onclick={() => (sidebarOpen = false)}
-				transition:fade={{ duration: 150 }}
-			></button>
-			<div class="absolute inset-y-0 left-0 shadow-xl" transition:fly={{ x: -300, duration: 200 }}>
-				<Sidebar
-					onnavigate={closeSidebar}
-					onNewTag={newTag}
-					onEditTag={editTag}
-					onRequestDelete={requestDelete}
-					onOpenBackup={openBackup}
-				/>
-			</div>
+<div class="flex h-svh w-full flex-col overflow-hidden">
+	{#if auth.offlineNotice}
+		<div class="bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-700 dark:text-amber-300">
+			{auth.offlineNotice}
 		</div>
 	{/if}
+	<div class="flex min-h-0 flex-1 overflow-hidden">
+		<!-- Sidebar: a permanent column on large screens… -->
+		<div class="hidden lg:flex">
+			<Sidebar
+				onNewTag={newTag}
+				onEditTag={editTag}
+				onRequestDelete={requestDelete}
+				onOpenBackup={openBackup}
+			/>
+		</div>
 
-	<!-- Master list: full-width on phones, a fixed column from md up.
-	     On phones it gives way to the detail pane once a repo is open. -->
-	<div
-		class="w-full min-w-0 md:w-95 md:shrink-0 md:border-r {data.selected
-			? 'max-md:hidden'
-			: ''}"
-	>
-		<StarList onmenu={() => (sidebarOpen = true)} />
-	</div>
-
-	<!-- Detail: the only pane shown on phones when a repo is selected; always visible from md up. -->
-	<div class="min-w-0 flex-1 {data.selected ? '' : 'max-md:hidden'}">
-		{#if data.selected}
-			<StarDetail star={data.selected} onback={() => data.select(null)} />
-		{:else}
-			<div
-				class="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
-			>
-				<Star class="size-10 opacity-30" />
-				<p class="text-sm">Select a repository to view details and add notes.</p>
+		<!-- …and an off-canvas drawer on smaller ones. -->
+		{#if sidebarOpen}
+			<div class="fixed inset-0 z-50 lg:hidden">
+				<button
+					type="button"
+					aria-label="Close menu"
+					class="absolute inset-0 bg-black/50"
+					onclick={() => (sidebarOpen = false)}
+					transition:fade={{ duration: 150 }}
+				></button>
+				<div class="absolute inset-y-0 left-0 shadow-xl" transition:fly={{ x: -300, duration: 200 }}>
+					<Sidebar
+						onnavigate={closeSidebar}
+						onNewTag={newTag}
+						onEditTag={editTag}
+						onRequestDelete={requestDelete}
+						onOpenBackup={openBackup}
+					/>
+				</div>
 			</div>
 		{/if}
+
+		<!-- Master list: full-width on phones, a fixed column from md up.
+		     On phones it gives way to the detail pane once a repo is open. -->
+		<div
+			class="w-full min-w-0 md:w-95 md:shrink-0 md:border-r {data.selected
+				? 'max-md:hidden'
+				: ''}"
+		>
+			<StarList onmenu={() => (sidebarOpen = true)} />
+		</div>
+
+		<!-- Detail: the only pane shown on phones when a repo is selected; always visible from md up. -->
+		<div class="min-w-0 flex-1 {data.selected ? '' : 'max-md:hidden'}">
+			{#if data.selected}
+				<StarDetail star={data.selected} onback={() => data.select(null)} />
+			{:else}
+				<div
+					class="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
+				>
+					<Star class="size-10 opacity-30" />
+					<p class="text-sm">Select a repository to view details and add notes.</p>
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 

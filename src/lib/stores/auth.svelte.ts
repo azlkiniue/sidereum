@@ -10,6 +10,7 @@ class AuthStore {
 	user = $state<Viewer | null>(null);
 	status = $state<AuthStatus>('idle');
 	error = $state<string | null>(null);
+	offlineNotice = $state<string | null>(null);
 
 	isAuthenticated = $derived(this.status === 'authenticated' && !!this.token);
 
@@ -19,6 +20,7 @@ class AuthStore {
 		const saved = localStorage.getItem(TOKEN_KEY);
 		if (!saved) return false;
 		this.token = saved;
+		this.offlineNotice = null;
 		return this.validate(saved);
 	}
 
@@ -29,10 +31,17 @@ class AuthStore {
 			this.user = await getViewer(token);
 			this.token = token;
 			this.status = 'authenticated';
+			this.offlineNotice = null;
 			return true;
 		} catch (e) {
+			if (this.token && this.#isOfflineError(e)) {
+				this.status = 'authenticated';
+				this.offlineNotice = 'You are offline. Sidereum is running in offline mode.';
+				return true;
+			}
 			this.status = 'error';
 			this.error = e instanceof Error ? e.message : 'Could not validate token.';
+			this.offlineNotice = null;
 			return false;
 		}
 	}
@@ -49,7 +58,14 @@ class AuthStore {
 		this.user = null;
 		this.status = 'idle';
 		this.error = null;
+		this.offlineNotice = null;
 		if (browser) localStorage.removeItem(TOKEN_KEY);
+	}
+
+	#isOfflineError(error: unknown): boolean {
+		if (!browser) return false;
+		if (!navigator.onLine) return true;
+		return error instanceof Error && /network error/i.test(error.message);
 	}
 }
 
