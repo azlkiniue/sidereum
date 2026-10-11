@@ -1,4 +1,5 @@
 import type { Star } from '$lib/types';
+import { network } from '$lib/stores/network.svelte';
 import { languageColor } from './language-colors';
 
 const REST_URL = 'https://api.github.com';
@@ -28,21 +29,42 @@ export class GitHubError extends Error {
 	}
 }
 
+/** True when the request never reached GitHub (offline, DNS failure, dropped connection). */
+export function isNetworkError(e: unknown): e is GitHubError {
+	return e instanceof GitHubError && e.status === 0;
+}
+
+/** True when GitHub rejected the token itself (revoked, expired or mistyped). */
+export function isUnauthorized(e: unknown): e is GitHubError {
+	return e instanceof GitHubError && e.status === 401;
+}
+
+/**
+ * Every GitHub request goes through here. A network-level failure becomes a `GitHubError`
+ * with status 0, and each outcome tells the network store whether GitHub is reachable.
+ */
+async function request(url: string, init: RequestInit = {}): Promise<Response> {
+	let res: Response;
+	try {
+		res = await fetch(url, init);
+	} catch {
+		network.online = false;
+		throw new GitHubError('Network error reaching GitHub. Check your connection.', 0);
+	}
+	network.online = true;
+	return res;
+}
+
 async function ghFetch(
 	token: string,
 	path: string,
 	init: RequestInit = {},
 	accept = 'application/vnd.github+json'
 ): Promise<Response> {
-	let res: Response;
-	try {
-		res = await fetch(REST_URL + path, {
-			...init,
-			headers: { Authorization: `Bearer ${token}`, Accept: accept, ...(init.headers ?? {}) }
-		});
-	} catch {
-		throw new GitHubError('Network error reaching GitHub. Check your connection.', 0);
-	}
+	const res = await request(REST_URL + path, {
+		...init,
+		headers: { Authorization: `Bearer ${token}`, Accept: accept, ...(init.headers ?? {}) }
+	});
 	if (res.status === 401) throw new GitHubError('Invalid or expired token.', 401);
 	if (res.status === 403) {
 		if (res.headers.get('x-ratelimit-remaining') === '0') {
@@ -178,7 +200,7 @@ export async function createGist(
 	content: string,
 	description = 'Sidereum backup — GitHub stars tags & notes'
 ): Promise<string> {
-	const res = await fetch(`${REST_URL}/gists`, {
+	const res = await request(`${REST_URL}/gists`, {
 		method: 'POST',
 		headers: jsonHeaders(token),
 		body: JSON.stringify({ description, public: false, files: { [GIST_FILENAME]: { content } } })
@@ -191,7 +213,7 @@ export async function createGist(
 }
 
 export async function updateGist(token: string, gistId: string, content: string): Promise<void> {
-	const res = await fetch(`${REST_URL}/gists/${gistId}`, {
+	const res = await request(`${REST_URL}/gists/${gistId}`, {
 		method: 'PATCH',
 		headers: jsonHeaders(token),
 		body: JSON.stringify({ files: { [GIST_FILENAME]: { content } } })
@@ -200,7 +222,7 @@ export async function updateGist(token: string, gistId: string, content: string)
 }
 
 export async function getGistContent(token: string, gistId: string): Promise<string | null> {
-	const res = await fetch(`${REST_URL}/gists/${gistId}`, {
+	const res = await request(`${REST_URL}/gists/${gistId}`, {
 		headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
 	});
 	if (res.status === 404) return null;
