@@ -16,7 +16,9 @@ export at any time. Deploy it to GitHub Pages or Cloudflare Pages for free.
   archived/fork, …) combined with _all_ / _any_ logic.
 - 🔎 **Fuzzy search & filters** — search across name, description, owner and topics; filter by
   language; sort by stars, recency, or name.
-- 📱 **Installable PWA** — install Sidereum on desktop/mobile with offline startup for the app shell.
+- 📱 **Installable PWA that works offline** — install Sidereum on desktop/mobile. Offline, it opens
+  with your saved stars, tags and notes and shows an offline notice; star refresh and Gist sync
+  pick up again when you reconnect. Only GitHub rejecting your token sends you back to login.
 - 💾 **Backup as a file** — export everything to a JSON file and import it back (merge or replace).
 - ☁️ **Optional Gist sync** — back up your tags & notes to a private GitHub Gist so they follow
   you across devices (still 100% client-side).

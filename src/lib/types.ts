@@ -89,6 +89,8 @@ export interface Settings {
 	autoSync: boolean;
 	lastSyncedAt: number | null;
 	lastFetchedAt: number | null;
+	/** Tag/note edits the gist hasn't received yet; auto-sync pushes them on reconnect. */
+	pendingPush: boolean;
 }
 
 export type SortKey = 'starred-desc' | 'starred-asc' | 'stars-desc' | 'pushed-desc' | 'name-asc';

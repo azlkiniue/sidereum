@@ -7,6 +7,12 @@ const rawBasePath = process.env.BASE_PATH ?? '';
 const basePath = rawBasePath === '' ? '/' : rawBasePath.endsWith('/') ? rawBasePath : `${rawBasePath}/`;
 const indexPath = `${basePath}index.html`;
 const fallbackPath = `${basePath}404.html`;
+// The prerendered HTML pages are written after the service worker is generated, so Workbox
+// can't hash them, yet they change on every build (SvelteKit's per-build version renames the
+// chunks they import). A per-build revision makes each deploy refetch them; `revision: null`
+// cached them forever, so after a deploy installed apps loaded stale HTML that imported
+// deleted chunks and showed a blank page.
+const htmlRevision = Date.now().toString();
 
 export default defineConfig({
 	plugins: [
@@ -59,9 +65,9 @@ export default defineConfig({
 				skipWaiting: true,
 				navigateFallback: 'index.html',
 				additionalManifestEntries: [
-					{ url: basePath, revision: null },
-					{ url: indexPath, revision: null },
-					{ url: fallbackPath, revision: null }
+					{ url: basePath, revision: htmlRevision },
+					{ url: indexPath, revision: htmlRevision },
+					{ url: fallbackPath, revision: htmlRevision }
 				],
 				navigateFallbackDenylist: [/^\/api\//],
 				runtimeCaching: [

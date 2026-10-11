@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { data } from '$lib/stores/data.svelte';
-	import { PER_PAGE } from '$lib/github/client';
+	import { network } from '$lib/stores/network.svelte';
+	import { PER_PAGE, isUnauthorized } from '$lib/github/client';
+	import { toast } from 'svelte-sonner';
 	import { Input } from '$lib/components/ui/input';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -69,6 +71,15 @@
 		if (Number.isFinite(n)) goTo(n);
 		pageDraft = String(page);
 	}
+
+	async function refresh(): Promise<void> {
+		try {
+			await data.sync();
+		} catch (e) {
+			// A rejected token has already sent the user back to the login screen.
+			if (!isUnauthorized(e)) toast.error(e instanceof Error ? e.message : 'Could not refresh stars.');
+		}
+	}
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
@@ -110,7 +121,7 @@
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					onclick={() => data.sync()}
+					onclick={refresh}
 					disabled={data.syncing}
 					title="Refresh stars from GitHub"
 				>
@@ -135,7 +146,9 @@
 	<div class="min-h-0 flex-1 overflow-y-auto" bind:this={scrollEl}>
 		{#if data.filtered.length === 0}
 			<div class="text-muted-foreground p-8 text-center text-sm">
-				{#if data.stars.length === 0}
+				{#if data.stars.length === 0 && !network.online}
+					You're offline. Your stars will load once you reconnect.
+				{:else if data.stars.length === 0}
 					No stars cached yet.
 				{:else}
 					No repositories match your filters.

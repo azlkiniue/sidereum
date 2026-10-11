@@ -11,7 +11,7 @@ import {
 	deleteTagById,
 	replaceStars
 } from '$lib/db';
-import { fetchAllStars } from '$lib/github/client';
+import { fetchAllStars, isUnauthorized } from '$lib/github/client';
 import { pushToGist } from '$lib/backup/gist';
 import { matchesSmartTag } from '$lib/smart/rules';
 import type { RepoMeta, Settings, SmartRuleGroup, SortKey, Star, Tag, ViewKind } from '$lib/types';
@@ -46,7 +46,8 @@ class DataStore {
 		gistId: null,
 		autoSync: false,
 		lastSyncedAt: null,
-		lastFetchedAt: null
+		lastFetchedAt: null,
+		pendingPush: false
 	});
 
 	loading = $state(true);
@@ -206,6 +207,9 @@ class DataStore {
 			this.stars = stars;
 			await replaceStars(stars);
 			await this.#patchSettings({ lastFetchedAt: Date.now() });
+		} catch (e) {
+			if (isUnauthorized(e)) auth.expire(token);
+			throw e;
 		} finally {
 			this.syncing = false;
 			this.progress = null;
@@ -320,27 +324,46 @@ class DataStore {
 	}
 
 	markSynced(): Promise<void> {
-		return this.#patchSettings({ lastSyncedAt: Date.now() });
+		return this.#patchSettings({ lastSyncedAt: Date.now(), pendingPush: false });
 	}
 
 	#syncTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Bumped on every auto-synced edit, so a push can tell whether edits landed mid-flight. */
+	#editSeq = 0;
+
 	/** Debounced push to gist after local edits, when auto-sync is enabled. */
 	#scheduleAutoSync(): void {
 		if (!this.settings.autoSync || !this.settings.gistId || !auth.token) return;
+		this.#editSeq++;
+		// The gist is behind until a push succeeds. Persisted, so edits made offline (or just
+		// before the app closed) still get pushed on the next reconnect.
+		if (!this.settings.pendingPush) void this.#patchSettings({ pendingPush: true });
 		if (this.#syncTimer) clearTimeout(this.#syncTimer);
 		this.#syncTimer = setTimeout(() => {
 			void this.#runAutoSync();
 		}, 2500);
 	}
 
+	/** Push edits the gist missed (made offline, or a push failed), when auto-sync is on. */
+	flushPendingPush(): void {
+		const { pendingPush, autoSync, gistId } = this.settings;
+		if (!pendingPush || !autoSync || !gistId) return;
+		if (this.#syncTimer) clearTimeout(this.#syncTimer);
+		void this.#runAutoSync();
+	}
+
 	async #runAutoSync(): Promise<void> {
 		const token = auth.token;
 		if (!token || !this.settings.gistId) return;
+		const seq = this.#editSeq;
 		try {
 			await pushToGist(token, this.settings.gistId);
-			await this.markSynced();
-		} catch {
-			// Silent: a failed background sync shouldn't interrupt the user.
+			// Edits made while the push was in flight aren't in it, so they stay pending.
+			await this.#patchSettings({ lastSyncedAt: Date.now(), pendingPush: this.#editSeq !== seq });
+		} catch (e) {
+			// Silent: a failed background sync shouldn't interrupt the user. The edits stay
+			// pending until the next reconnect; only a rejected token ends the session.
+			if (isUnauthorized(e)) auth.expire(token);
 		}
 	}
 
@@ -355,7 +378,8 @@ class DataStore {
 			gistId: null,
 			autoSync: false,
 			lastSyncedAt: null,
-			lastFetchedAt: null
+			lastFetchedAt: null,
+			pendingPush: false
 		};
 		this.view = { kind: 'all' };
 		this.selectedId = null;

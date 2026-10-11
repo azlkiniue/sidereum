@@ -1,8 +1,11 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
+	import { toast } from 'svelte-sonner';
 	import { auth } from '$lib/stores/auth.svelte';
 	import { data } from '$lib/stores/data.svelte';
+	import { network } from '$lib/stores/network.svelte';
+	import { isNetworkError, isUnauthorized } from '$lib/github/client';
 	import Sidebar from './Sidebar.svelte';
 	import StarList from './StarList.svelte';
 	import StarDetail from './StarDetail.svelte';
@@ -12,6 +15,7 @@
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { Tag } from '$lib/types';
 	import Star from '@lucide/svelte/icons/star';
+	import WifiOff from '@lucide/svelte/icons/wifi-off';
 
 	let sidebarOpen = $state(false);
 
@@ -54,10 +58,29 @@
 		closeSidebar();
 	}
 
-	// First time in with a valid token but an empty cache → pull stars from GitHub.
-	onMount(() => {
-		if (auth.token && data.stars.length === 0 && !data.syncing) data.sync();
+	// Whenever GitHub is reachable (on first render, and again after every reconnect), catch up:
+	// confirm a session restored from storage, push tag/note edits the gist missed, and fetch
+	// the stars if none are cached yet. Untracked, so only `network.online` re-runs this.
+	$effect(() => {
+		if (!network.online) return;
+		untrack(() => {
+			void auth.revalidate();
+			data.flushPendingPush();
+			void fetchStarsIfEmpty();
+		});
 	});
+
+	async function fetchStarsIfEmpty() {
+		if (data.stars.length > 0) return;
+		try {
+			await data.sync();
+		} catch (e) {
+			// Offline: the banner already says so. Rejected token: we're back at the login screen.
+			if (!isNetworkError(e) && !isUnauthorized(e)) {
+				toast.error(e instanceof Error ? e.message : 'Could not fetch your stars.');
+			}
+		}
+	}
 </script>
 
 <svelte:window
@@ -66,61 +89,74 @@
 	}}
 />
 
-<div class="flex h-svh w-full overflow-hidden">
-	<!-- Sidebar: a permanent column on large screens… -->
-	<div class="hidden lg:flex">
-		<Sidebar
-			onNewTag={newTag}
-			onEditTag={editTag}
-			onRequestDelete={requestDelete}
-			onOpenBackup={openBackup}
-		/>
-	</div>
-
-	<!-- …and an off-canvas drawer on smaller ones. -->
-	{#if sidebarOpen}
-		<div class="fixed inset-0 z-50 lg:hidden">
-			<button
-				type="button"
-				aria-label="Close menu"
-				class="absolute inset-0 bg-black/50"
-				onclick={() => (sidebarOpen = false)}
-				transition:fade={{ duration: 150 }}
-			></button>
-			<div class="absolute inset-y-0 left-0 shadow-xl" transition:fly={{ x: -300, duration: 200 }}>
-				<Sidebar
-					onnavigate={closeSidebar}
-					onNewTag={newTag}
-					onEditTag={editTag}
-					onRequestDelete={requestDelete}
-					onOpenBackup={openBackup}
-				/>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Master list: full-width on phones, a fixed column from md up.
-	     On phones it gives way to the detail pane once a repo is open. -->
-	<div
-		class="w-full min-w-0 md:w-95 md:shrink-0 md:border-r {data.selected
-			? 'max-md:hidden'
-			: ''}"
-	>
-		<StarList onmenu={() => (sidebarOpen = true)} />
-	</div>
-
-	<!-- Detail: the only pane shown on phones when a repo is selected; always visible from md up. -->
-	<div class="min-w-0 flex-1 {data.selected ? '' : 'max-md:hidden'}">
-		{#if data.selected}
-			<StarDetail star={data.selected} onback={() => data.select(null)} />
-		{:else}
+<div class="flex h-svh w-full flex-col overflow-hidden">
+	<!-- The live region stays mounted so screen readers announce the notice when it appears. -->
+	<div role="status">
+		{#if !network.online}
 			<div
-				class="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
+				class="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-2 text-center text-sm text-amber-700 dark:text-amber-300"
 			>
-				<Star class="size-10 opacity-30" />
-				<p class="text-sm">Select a repository to view details and add notes.</p>
+				<WifiOff class="size-4 shrink-0" />
+				<span>You're offline. Showing your saved stars; tags and notes still save on this device.</span>
 			</div>
 		{/if}
+	</div>
+	<div class="flex min-h-0 flex-1 overflow-hidden">
+		<!-- Sidebar: a permanent column on large screens… -->
+		<div class="hidden lg:flex">
+			<Sidebar
+				onNewTag={newTag}
+				onEditTag={editTag}
+				onRequestDelete={requestDelete}
+				onOpenBackup={openBackup}
+			/>
+		</div>
+
+		<!-- …and an off-canvas drawer on smaller ones. -->
+		{#if sidebarOpen}
+			<div class="fixed inset-0 z-50 lg:hidden">
+				<button
+					type="button"
+					aria-label="Close menu"
+					class="absolute inset-0 bg-black/50"
+					onclick={() => (sidebarOpen = false)}
+					transition:fade={{ duration: 150 }}
+				></button>
+				<div class="absolute inset-y-0 left-0 shadow-xl" transition:fly={{ x: -300, duration: 200 }}>
+					<Sidebar
+						onnavigate={closeSidebar}
+						onNewTag={newTag}
+						onEditTag={editTag}
+						onRequestDelete={requestDelete}
+						onOpenBackup={openBackup}
+					/>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Master list: full-width on phones, a fixed column from md up.
+		     On phones it gives way to the detail pane once a repo is open. -->
+		<div
+			class="w-full min-w-0 md:w-95 md:shrink-0 md:border-r {data.selected
+				? 'max-md:hidden'
+				: ''}"
+		>
+			<StarList onmenu={() => (sidebarOpen = true)} />
+		</div>
+
+		<!-- Detail: the only pane shown on phones when a repo is selected; always visible from md up. -->
+		<div class="min-w-0 flex-1 {data.selected ? '' : 'max-md:hidden'}">
+			{#if data.selected}
+				<StarDetail star={data.selected} onback={() => data.select(null)} />
+			{:else}
+				<div
+					class="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
+				>
+					<Star class="size-10 opacity-30" />
+					<p class="text-sm">Select a repository to view details and add notes.</p>
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 

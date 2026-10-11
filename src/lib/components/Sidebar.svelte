@@ -87,7 +87,7 @@
 	</div>
 {/snippet}
 
-<aside class="bg-sidebar text-sidebar-foreground flex h-svh w-64 shrink-0 flex-col border-r">
+<aside class="bg-sidebar text-sidebar-foreground flex h-full w-64 shrink-0 flex-col border-r">
 	<!-- Header -->
 	<div class="flex items-center gap-2 border-b p-3">
 		<Star class="size-5 shrink-0 fill-yellow-400 text-yellow-400" />
@@ -106,13 +106,16 @@
 					</Avatar.Root>
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="end" class="w-56">
-					<DropdownMenu.Label>
-						<div class="flex flex-col">
-							<span class="truncate">{auth.user?.name ?? auth.user?.login}</span>
-							<span class="text-muted-foreground text-xs font-normal">@{auth.user?.login}</span>
-						</div>
-					</DropdownMenu.Label>
-					<DropdownMenu.Separator />
+					<!-- The profile can be unknown when a session was restored offline. -->
+					{#if auth.user}
+						<DropdownMenu.Label>
+							<div class="flex flex-col">
+								<span class="truncate">{auth.user.name ?? auth.user.login}</span>
+								<span class="text-muted-foreground text-xs font-normal">@{auth.user.login}</span>
+							</div>
+						</DropdownMenu.Label>
+						<DropdownMenu.Separator />
+					{/if}
 					<DropdownMenu.Item onSelect={() => onOpenBackup?.()}>
 						<Database /> Backup &amp; sync
 					</DropdownMenu.Item>

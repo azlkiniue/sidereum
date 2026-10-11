@@ -95,12 +95,14 @@ const DEFAULT_SETTINGS: Settings = {
 	gistId: null,
 	autoSync: false,
 	lastSyncedAt: null,
-	lastFetchedAt: null
+	lastFetchedAt: null,
+	pendingPush: false
 };
 
 export async function getSettings(): Promise<Settings> {
 	const existing = await (await db()).get('settings', 'settings');
-	return existing ?? { ...DEFAULT_SETTINGS };
+	// Defaults first, so settings saved by an older version gain any fields added since.
+	return { ...DEFAULT_SETTINGS, ...existing };
 }
 
 export async function putSettings(settings: Settings): Promise<void> {
